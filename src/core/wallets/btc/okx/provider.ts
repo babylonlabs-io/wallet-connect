@@ -1,6 +1,6 @@
 import type { BTCConfig, Fees, InscriptionIdentifier, UTXO, WalletInfo } from "@/core/types";
 import { Network } from "@/core/types";
-import { validateAddress } from "@/core/utils/wallet";
+// import { validateAddress } from "@/core/utils/wallet";
 import { BTCProvider } from "@/core/wallets/btc/BTCProvider";
 
 const PROVIDER_NAMES = {
@@ -53,7 +53,7 @@ export class OKXProvider extends BTCProvider {
 
     const { address, compressedPublicKey } = result;
 
-    validateAddress(this.config.network, address);
+    // validateAddress(this.config.network, address);
 
     if (compressedPublicKey && address) {
       this.walletInfo = {

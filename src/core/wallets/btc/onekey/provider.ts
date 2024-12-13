@@ -1,6 +1,6 @@
 import type { BTCConfig, Fees, InscriptionIdentifier, UTXO, WalletInfo } from "@/core/types";
 import { Network } from "@/core/types";
-import { validateAddress } from "@/core/utils/wallet";
+// import { validateAddress } from "@/core/utils/wallet";
 import { BTCProvider } from "@/core/wallets/btc/BTCProvider";
 
 const INTERNAL_NETWORK_NAMES = {
@@ -36,7 +36,7 @@ export class OneKeyProvider extends BTCProvider {
     }
 
     const address = await this.provider.getAddress();
-    validateAddress(this.config.network, address);
+    // validateAddress(this.config.network, address);
 
     const publicKeyHex = await this.provider.getPublicKeyHex();
 
