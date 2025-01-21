@@ -77,14 +77,21 @@ export class KeystoneProvider implements IBTCProvider {
     // parse the QR Code and get extended public key and other required information
     const accountData = this.dataSdk.parseAccount(decodedResult.result);
 
-    // currently only the p2tr address will be used.
-    const P2TRINDEX = 3;
-    const xpub = accountData.keys[P2TRINDEX].extendedPublicKey;
+    const LEGACY_INDEX = 2;
+    // const NESTED_SEGWIT_INDEX = 1;
+    // const NATIVE_SEGWIT_INDEX = 0;
+    // const TAPROOT_INDEX = 3;
+
+    const selectedIndex = LEGACY_INDEX; // Change this to the desired index
+
+    // // currently only the p2tr address will be used.
+    // const P2TRINDEX = 3;
+    const xpub = accountData.keys[selectedIndex].extendedPublicKey;
 
     this.keystoneWaleltInfo = {
       mfp: accountData.masterFingerprint,
       extendedPublicKey: xpub,
-      path: accountData.keys[P2TRINDEX].path,
+      path: accountData.keys[selectedIndex].path,
       address: undefined,
       publicKeyHex: undefined,
       scriptPubKeyHex: undefined,
@@ -93,10 +100,11 @@ export class KeystoneProvider implements IBTCProvider {
     if (!this.keystoneWaleltInfo.extendedPublicKey) throw new Error("Could not retrieve the extended public key");
 
     // generate the address and public key based on the xpub
-    const { address, pubkeyHex, scriptPubKeyHex } = generateP2trAddressFromXpub(
+    const { address, pubkeyHex, scriptPubKeyHex } = generateAddressFromXpub(
       this.keystoneWaleltInfo.extendedPublicKey,
       "M/0/0",
       toNetwork(this.config.network),
+      selectedIndex,
     );
     this.keystoneWaleltInfo.address = address;
     this.keystoneWaleltInfo.publicKeyHex = pubkeyHex;
@@ -281,51 +289,125 @@ const composeQRProcess =
     return urResult.result;
   };
 
-/**
- * Generates the p2tr Bitcoin address from an extended public key and a path.
- * @param xpub - The extended public key.
- * @param path - The derivation path.
- * @param network - The Bitcoin network.
- * @returns The Bitcoin address and the public key as a hex string.
- */
-const generateP2trAddressFromXpub = (
+const generateAddressFromXpub = (
   xpub: string,
   path: string,
   network: BitcoinNetwork,
+  addressTypeIndex: number,
 ): { address: string; pubkeyHex: string; scriptPubKeyHex: string } => {
   const hdNode = HDKey.fromExtendedKey(xpub);
   const derivedNode = hdNode.derive(path);
   const pubkeyBuffer = Buffer.from(derivedNode.publicKey!);
-  const childNodeXOnlyPubkey = toXOnly(pubkeyBuffer);
   let address: string;
   let output: Buffer;
-  try {
-    const res = payments.p2tr({
-      internalPubkey: childNodeXOnlyPubkey,
-      network,
-    });
-    address = res.address!;
-    output = res.output!;
-  } catch (error: Error | any) {
-    if (error instanceof Error && error.message.includes("ECC")) {
-      // initialize the BTC curve if not already initialized
-      initBTCCurve();
-      const res = payments.p2tr({
-        internalPubkey: childNodeXOnlyPubkey,
+
+  switch (addressTypeIndex) {
+    case 2: {
+      // Legacy
+      const legacyRes = payments.p2pkh({ pubkey: pubkeyBuffer, network });
+      address = legacyRes.address!;
+      output = legacyRes.output!;
+      break;
+    }
+    case 1: {
+      // Nested SegWit
+      const nestedSegWitRes = payments.p2sh({
+        redeem: payments.p2wpkh({ pubkey: pubkeyBuffer, network }),
         network,
       });
-      address = res.address!;
-      output = res.output!;
-    } else {
-      throw new Error(error);
+      address = nestedSegWitRes.address!;
+      output = nestedSegWitRes.output!;
+      break;
     }
+    case 0: {
+      // Native SegWit
+      const nativeSegWitRes = payments.p2wpkh({ pubkey: pubkeyBuffer, network });
+      address = nativeSegWitRes.address!;
+      output = nativeSegWitRes.output!;
+      break;
+    }
+    case 3: {
+      // Taproot
+      const childNodeXOnlyPubkey = toXOnly(pubkeyBuffer);
+      try {
+        const taprootRes = payments.p2tr({
+          internalPubkey: childNodeXOnlyPubkey,
+          network,
+        });
+        address = taprootRes.address!;
+        output = taprootRes.output!;
+      } catch (error: Error | any) {
+        if (error instanceof Error && error.message.includes("ECC")) {
+          // initialize the BTC curve if not already initialized
+          initBTCCurve();
+          const taprootRes = payments.p2tr({
+            internalPubkey: childNodeXOnlyPubkey,
+            network,
+          });
+          address = taprootRes.address!;
+          output = taprootRes.output!;
+        } else {
+          throw new Error(error);
+        }
+      }
+      break;
+    }
+    default:
+      throw new Error("Unsupported address type index");
   }
+
   return {
-    address: address!,
+    address,
     pubkeyHex: pubkeyBuffer.toString("hex"),
-    scriptPubKeyHex: output!.toString("hex"),
+    scriptPubKeyHex: output.toString("hex"),
   };
 };
+
+// /**
+//  * Generates the p2tr Bitcoin address from an extended public key and a path.
+//  * @param xpub - The extended public key.
+//  * @param path - The derivation path.
+//  * @param network - The Bitcoin network.
+//  * @returns The Bitcoin address and the public key as a hex string.
+//  */
+// const generateP2trAddressFromXpub = (
+//   xpub: string,
+//   path: string,
+//   network: BitcoinNetwork,
+// ): { address: string; pubkeyHex: string; scriptPubKeyHex: string } => {
+//   const hdNode = HDKey.fromExtendedKey(xpub);
+//   const derivedNode = hdNode.derive(path);
+//   const pubkeyBuffer = Buffer.from(derivedNode.publicKey!);
+//   const childNodeXOnlyPubkey = toXOnly(pubkeyBuffer);
+//   let address: string;
+//   let output: Buffer;
+//   try {
+//     const res = payments.p2tr({
+//       internalPubkey: childNodeXOnlyPubkey,
+//       network,
+//     });
+//     address = res.address!;
+//     output = res.output!;
+//   } catch (error: Error | any) {
+//     if (error instanceof Error && error.message.includes("ECC")) {
+//       // initialize the BTC curve if not already initialized
+//       initBTCCurve();
+//       const res = payments.p2tr({
+//         internalPubkey: childNodeXOnlyPubkey,
+//         network,
+//       });
+//       address = res.address!;
+//       output = res.output!;
+//     } else {
+//       throw new Error(error);
+//     }
+//   }
+//   return {
+//     address: address!,
+//     pubkeyHex: pubkeyBuffer.toString("hex"),
+//     scriptPubKeyHex: output!.toString("hex"),
+//   };
+// };
 
 /**
  * Calculates the tap leaf hashes for a given PsbtInput and public key.

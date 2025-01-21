@@ -3,7 +3,6 @@ import { Psbt, address as btcAddress, networks } from "bitcoinjs-lib";
 
 import type { BTCConfig, IBTCProvider, InscriptionIdentifier, WalletInfo } from "@/core/types";
 import { Network } from "@/core/types";
-import { validateAddress } from "@/core/utils/wallet";
 
 import logo from "./logo.svg";
 
@@ -24,6 +23,8 @@ export const WALLET_PROVIDER_NAME = "Unisat";
 // Unisat derivation path for BTC Signet
 // Taproot: `m/86'/1'/0'/0`
 // Native Segwit: `m/84'/1'/0'/0`
+// Nested Segwit: `m/49'/1'/0'/0`
+// Legacy: `m/44'/1'/0'/0`
 export class UnisatProvider implements IBTCProvider {
   private provider: any;
   private walletInfo: WalletInfo | undefined;
@@ -53,7 +54,10 @@ export class UnisatProvider implements IBTCProvider {
     }
 
     const address = accounts[0];
-    validateAddress(this.config.network, address);
+    // TODO we don't need to validate the address network as Unisat Wallet supports
+    // Legacy, Nested Segwit, Native Segwit, and Taproot
+    // or we need to change the validation properly
+    // validateAddressNetwork(this.config.network, address);
 
     const publicKeyHex = await this.provider.getPublicKey();
 

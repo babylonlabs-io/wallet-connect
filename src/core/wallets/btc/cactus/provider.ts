@@ -1,6 +1,6 @@
 import type { BTCConfig, IBTCProvider, InscriptionIdentifier, WalletInfo } from "@/core/types";
 import { Network } from "@/core/types";
-import { validateAddress } from "@/core/utils/wallet";
+import { validateAddressNetwork } from "@/core/utils/wallet";
 
 import logo from "./logo.svg";
 
@@ -45,7 +45,7 @@ export class CactusLinkProvider implements IBTCProvider {
     }
 
     const address = await this.getAddress();
-    validateAddress(this.config.network, address);
+    validateAddressNetwork(this.config.network, address);
 
     const publicKeyHex = await this.getPublicKeyHex();
 
