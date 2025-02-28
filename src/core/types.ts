@@ -261,4 +261,19 @@ export interface IBBNProvider extends IProvider {
    * @throws {Error} If wallet connection is not established or signer cannot be retrieved
    */
   getOfflineSigner(): Promise<OfflineAminoSigner & OfflineDirectSigner>;
+
+  /**
+   * Registers an event listener for the specified event.
+   * At the moment, only the "accountChanged" event is supported.
+   * @param eventName - The name of the event to listen for.
+   * @param callBack - The callback function to be executed when the event occurs.
+   */
+  on(eventName: string, callBack: () => void): void;
+
+  /**
+   * Unregisters an event listener for the specified event.
+   * @param eventName - The name of the event to listen for.
+   * @param callBack - The callback function to be executed when the event occurs.
+   */
+  off(eventName: string, callBack: () => void): void;
 }
